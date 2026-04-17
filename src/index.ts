@@ -39,6 +39,24 @@ async function main() {
   const orchestrator = new OrchestratorAgent(keys.orchestratorKey);
   console.log(`[Orchestrator] Address: ${orchestrator.address}`);
 
+  // 2b. Ensure Summarizer has Gateway deposit for circular economy
+  // (Summarizer pays Sentiment agent internally)
+  try {
+    const summarizerClient = new (await import("@circle-fin/x402-batching/client")).GatewayClient({
+      chain: CONFIG.chain,
+      privateKey: keys.summarizerKey,
+    });
+    const summarizerBal = await summarizerClient.getBalances();
+    console.log(`[Summarizer] Gateway balance: ${summarizerBal.gateway.formattedAvailable} USDC`);
+    if (summarizerBal.gateway.available < 500_000n) {
+      console.log(`[Summarizer] Depositing 2 USDC into Gateway for circular economy...`);
+      const dep = await summarizerClient.deposit("2");
+      console.log(`[Summarizer] Deposit tx: ${dep.depositTxHash}`);
+    }
+  } catch (err: any) {
+    console.error(`[Summarizer] Gateway deposit failed: ${err.message}`);
+  }
+
   // 3. Dashboard + API server
   const dashApp = express();
   dashApp.use(express.json());

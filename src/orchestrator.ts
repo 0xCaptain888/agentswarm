@@ -157,11 +157,14 @@ export class OrchestratorAgent {
 
     let researchText: string;
     if (twitterResult.data) {
-      researchText = `Twitter profile for @${twitterResult.data.username || twitterUser}: ` +
-        `${twitterResult.data.name || "Unknown"} - ${twitterResult.data.description || "No description"}. ` +
-        `Followers: ${twitterResult.data.followers_count ?? "N/A"}, ` +
-        `Following: ${twitterResult.data.following_count ?? "N/A"}, ` +
-        `Tweets: ${twitterResult.data.tweet_count ?? "N/A"}.`;
+      // Extract data from nested response structure (AIsa returns { data: { data: { ... } } })
+      const profile = twitterResult.data.data || twitterResult.data;
+      researchText = `Twitter profile for @${profile.userName || profile.username || twitterUser}: ` +
+        `${profile.name || "Unknown"} - ${profile.description || "No description"}. ` +
+        `Followers: ${profile.followers ?? profile.followers_count ?? "N/A"}, ` +
+        `Following: ${profile.following ?? profile.following_count ?? "N/A"}, ` +
+        `Tweets: ${profile.statusesCount ?? profile.tweet_count ?? "N/A"}. ` +
+        `Verified: ${profile.verifiedType || "No"}.`;
 
       tracker.record({
         from: "orchestrator",
