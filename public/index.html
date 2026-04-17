@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentSwarm — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* === RESET & FOUNDATION === */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:        #06080c;
+  --bg-card:   #0b0e14;
+  --bg-raised: #10141c;
+  --border:    #1a1f2e;
+  --border-hi: #252c3e;
+  --text:      #c8cdd8;
+  --text-dim:  #5c6478;
+  --text-mute: #3a4050;
+  --blue:      #1AA3FF;
+  --blue-dim:  #1AA3FF33;
+  --purple:    #7C3AED;
+  --purple-dim:#7C3AED33;
+  --green:     #22c55e;
+  --green-dim: #22c55e22;
+  --yellow:    #eab308;
+  --yellow-dim:#eab30822;
+  --red:       #ef4444;
+  --red-dim:   #ef444422;
+  --cyan:      #06b6d4;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+}
+html{font-size:13px;background:var(--bg);color:var(--text);font-family:var(--font-mono)}
+body{min-height:100vh;overflow-x:hidden}
+input,select,button,textarea{font-family:inherit;font-size:inherit;color:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:2px}
+
+/* === AMBIENT BACKGROUND === */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-1;
+  background:
+    radial-gradient(ellipse 800px 400px at 20% 10%, var(--blue-dim), transparent),
+    radial-gradient(ellipse 600px 500px at 80% 80%, var(--purple-dim), transparent),
+    var(--bg);
+}
+
+/* === SCANLINE OVERLAY === */
+body::after{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* === LAYOUT === */
+.shell{max-width:1440px;margin:0 auto;padding:1rem 1.25rem 3rem}
+
+/* === HEADER === */
+.header{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;padding:1.5rem 0 1rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem}
+.header-left{display:flex;align-items:center;gap:1rem}
+.logo-glyph{
+  width:40px;height:40px;border-radius:8px;
+  background:linear-gradient(135deg, var(--blue), var(--purple));
+  display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:1.3rem;color:#fff;
+  box-shadow:0 0 20px var(--blue-dim), 0 0 40px var(--purple-dim);
+  animation:pulse-glow 3s ease-in-out infinite alternate;
+}
+@keyframes pulse-glow{0%{box-shadow:0 0 15px var(--blue-dim)}100%{box-shadow:0 0 25px var(--blue-dim),0 0 50px var(--purple-dim)}}
+.brand h1{font-family:var(--font-display);font-weight:800;font-size:1.6rem;letter-spacing:-0.02em;color:#fff;line-height:1}
+.brand p{font-size:.75rem;color:var(--text-dim);margin-top:.2rem;letter-spacing:.04em}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.chain-tag{font-size:.7rem;color:var(--text-dim);background:var(--bg-raised);border:1px solid var(--border);padding:.2rem .6rem;border-radius:4px}
+
+/* === GRID === */
+.grid-main{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:1.25rem}
+.col-span-2{grid-column:1/-1}
+
+/* === CARD === */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--border-hi),transparent)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem;border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)}
+.card-head .tag{font-size:.6rem;padding:.15rem .45rem;border-radius:3px;background:var(--bg-raised);border:1px solid var(--border)}
+.card-body{padding:.9rem}
+
+/* === AGENT NETWORK TOPOLOGY === */
+.topo{display:flex;align-items:center;justify-content:center;gap:0;position:relative;padding:1.5rem .5rem}
+.agent-node{
+  display:flex;flex-direction:column;align-items:center;gap:.4rem;z-index:2;
+  flex:0 0 auto;width:130px;text-align:center;
+}
+.agent-icon{
+  width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;
+  border:1.5px solid var(--border-hi);background:var(--bg-raised);
+  transition:all .3s ease;position:relative;
+}
+.agent-icon.orch{border-color:var(--blue);box-shadow:0 0 12px var(--blue-dim)}
+.agent-icon.trans{border-color:#f59e0b;box-shadow:0 0 12px #f59e0b22}
+.agent-icon.summ{border-color:var(--purple);box-shadow:0 0 12px var(--purple-dim)}
+.agent-icon.sent{border-color:var(--cyan);box-shadow:0 0 12px #06b6d422}
+.agent-name{font-size:.7rem;font-weight:600;color:#fff}
+.agent-addr{font-size:.55rem;color:var(--text-mute);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-price{font-size:.6rem;color:var(--green);font-weight:500}
+.agent-status{font-size:.55rem;display:flex;align-items:center;gap:.3rem}
+.agent-status .dot{width:5px;height:5px;border-radius:50%}
+.agent-status .dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.agent-status .dot.off{background:var(--red);box-shadow:0 0 6px var(--red)}
+
+/* Connection lines */
+.topo-lines{position:absolute;inset:0;z-index:1;pointer-events:none}
+.topo-lines svg{width:100%;height:100%}
+.topo-line{stroke:var(--border-hi);stroke-width:1;fill:none;stroke-dasharray:4 4}
+.topo-line.active{stroke:var(--blue);stroke-dasharray:6 3;animation:dash 1.5s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+
+/* Specialist column */
+.spec-col{display:flex;flex-direction:column;gap:.8rem}
+.arrow-col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:80px;position:relative}
+.arrow-line{
+  width:60px;height:1px;background:var(--border-hi);position:relative;
+}
+.arrow-line::after{
+  content:'';position:absolute;right:-1px;top:-3px;
+  border:3px solid transparent;border-left:5px solid var(--border-hi);
+}
+.arrow-line.active{background:var(--blue);animation:arrow-pulse 2s ease infinite}
+.arrow-line.active::after{border-left-color:var(--blue)}
+@keyframes arrow-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* === STATS ROW === */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.stat-box{text-align:center;padding:.6rem}
+.stat-val{font-family:var(--font-display);font-size:2rem;font-weight:700;color:#fff;line-height:1.1}
+.stat-val.blue{color:var(--blue)}
+.stat-val.purple{color:var(--purple)}
+.stat-val.green{color:var(--green)}
+.stat-val.cyan{color:var(--cyan)}
+.stat-label{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:.3rem}
+
+/* Agent bar chart */
+.bar-chart{display:flex;align-items:flex-end;gap:.5rem;height:60px;padding-top:.5rem}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .5s ease}
+.bar.translator{background:linear-gradient(180deg,#f59e0b,#f59e0b88)}
+.bar.summarizer{background:linear-gradient(180deg,var(--purple),var(--purple)88)}
+.bar.sentiment{background:linear-gradient(180deg,var(--cyan),var(--cyan)88)}
+.bar-label{font-size:.5rem;color:var(--text-mute);text-transform:uppercase}
+.bar-count{font-size:.6rem;color:var(--text-dim);font-weight:600}
+
+/* === TRANSACTION FEED === */
+.feed{max-height:360px;overflow-y:auto;font-size:.72rem}
+.feed-empty{padding:2rem;text-align:center;color:var(--text-mute);font-style:italic}
+.tx-row{
+  display:grid;grid-template-columns:70px 1fr 90px 65px 50px 50px;align-items:center;gap:.5rem;
+  padding:.4rem .7rem;border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.tx-row:hover{background:var(--bg-raised)}
+.tx-row.new{animation:tx-flash .6s ease}
+@keyframes tx-flash{0%{background:var(--blue-dim)}100%{background:transparent}}
+.tx-time{color:var(--text-mute);font-size:.6rem}
+.tx-flow{display:flex;align-items:center;gap:.3rem}
+.tx-agent{padding:.1rem .35rem;border-radius:3px;font-size:.6rem;font-weight:500;white-space:nowrap}
+.tx-agent.orch{background:#1AA3FF18;color:var(--blue)}
+.tx-agent.trans{background:#f59e0b18;color:#f59e0b}
+.tx-agent.summ{background:#7C3AED18;color:var(--purple)}
+.tx-agent.sent{background:#06b6d418;color:var(--cyan)}
+.tx-arrow{color:var(--text-mute);font-size:.65rem}
+.tx-svc{color:var(--text-dim)}
+.tx-amt{color:var(--green);font-weight:500;text-align:right}
+.tx-status{text-align:center}
+.tx-badge{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;font-weight:500}
+.tx-badge.completed{background:var(--green-dim);color:var(--green)}
+.tx-badge.pending{background:var(--yellow-dim);color:var(--yellow)}
+.tx-badge.failed{background:var(--red-dim);color:var(--red)}
+.tx-lat{color:var(--text-mute);text-align:right;font-size:.6rem}
+
+/* === PIPELINE FORM === */
+.form-grid{display:grid;gap:.7rem}
+.form-row{display:flex;gap:.5rem}
+.form-row.full textarea{flex:1}
+textarea.input-area{
+  width:100%;min-height:65px;resize:vertical;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.5rem .7rem;color:var(--text);line-height:1.5;font-size:.75rem;
+  transition:border-color .2s;
+}
+textarea.input-area:focus{outline:none;border-color:var(--blue)}
+select.lang-sel{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.4rem .6rem;color:var(--text);cursor:pointer;min-width:100px;
+}
+select.lang-sel:focus{outline:none;border-color:var(--blue)}
+.btn{
+  padding:.45rem 1rem;border-radius:6px;border:1px solid transparent;
+  cursor:pointer;font-weight:600;font-size:.72rem;letter-spacing:.02em;
+  transition:all .2s;display:inline-flex;align-items:center;gap:.4rem;
+  white-space:nowrap;
+}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover:not(:disabled){background:#1590e0;box-shadow:0 0 16px var(--blue-dim)}
+.btn-purple{background:var(--purple);color:#fff;border-color:var(--purple)}
+.btn-purple:hover:not(:disabled){background:#6d28d9;box-shadow:0 0 16px var(--purple-dim)}
+.btn-ghost{background:transparent;color:var(--text-dim);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--text-dim);color:var(--text)}
+.btn .spinner{width:12px;height:12px;border:2px solid #fff4;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.btn.loading .spinner{display:block}
+.btn.loading{pointer-events:none;opacity:.7}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Result output */
+.result-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.6rem .8rem;font-size:.7rem;line-height:1.6;
+  max-height:200px;overflow-y:auto;display:none;
+}
+.result-box.visible{display:block}
+.result-label{font-size:.55rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+.result-val{color:var(--text)}
+.result-val.hl{color:var(--green)}
+
+/* === MARGIN ANALYSIS === */
+.margin-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.margin-table th{text-align:left;color:var(--text-dim);font-weight:500;padding:.45rem .6rem;border-bottom:1px solid var(--border);font-size:.6rem;text-transform:uppercase;letter-spacing:.05em}
+.margin-table td{padding:.45rem .6rem;border-bottom:1px solid var(--border)}
+.margin-table tr:last-child td{border-bottom:none}
+.margin-table .method{font-weight:500;color:#fff}
+.margin-table .cost{text-align:right;font-weight:600}
+.margin-table .cost.bad{color:var(--red)}
+.margin-table .cost.ok{color:var(--yellow)}
+.margin-table .cost.good{color:var(--green)}
+.margin-table .viable{text-align:center}
+.margin-table .x-mark{color:var(--red);font-weight:700;font-size:1rem}
+.margin-table .check-mark{color:var(--green);font-weight:700;font-size:1rem}
+.margin-note{font-size:.6rem;color:var(--text-mute);margin-top:.6rem;line-height:1.5;padding:0 .6rem}
+
+/* === RESPONSIVE === */
+@media(max-width:900px){
+  .grid-main{grid-template-columns:1fr}
+  .col-span-2{grid-column:1}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-glyph">A</div>
+    <div class="brand">
+      <h1>AgentSwarm</h1>
+      <p>AI Agent-to-Agent Payment Marketplace on Arc</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot" id="liveDot"></div>
+    <span class="chain-tag">Arc Testnet &middot; Chain 5042002</span>
+    <span class="chain-tag" id="connStatus">Connecting&hellip;</span>
+  </div>
+</header>
+
+<!-- MAIN GRID -->
+<div class="grid-main">
+
+<!-- AGENT TOPOLOGY (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Agent Network Topology</span>
+    <span class="tag" id="agentCount">4 agents</span>
+  </div>
+  <div class="card-body">
+    <div class="topo" id="topoContainer">
+      <!-- Orchestrator -->
+      <div class="agent-node">
+        <div class="agent-icon orch">&#x1F9E0;</div>
+        <div class="agent-name">Orchestrator</div>
+        <div class="agent-addr" id="addrOrch">0x&hellip;</div>
+        <div class="agent-price" id="balOrch">&mdash;</div>
+        <div class="agent-status"><div class="dot" id="dotOrch"></div><span id="statusOrch">loading</span></div>
+      </div>
+
+      <!-- Arrows -->
+      <div class="arrow-col">
+        <div class="arrow-line" id="arrowTrans"></div>
+        <div style="height:20px"></div>
+        <div class="arrow-line" id="arrowSumm"></div>
+        <div style="height:20px"></div>
+        <div class="arrow-line" id="arrowSent"></div>
+      </div>
+
+      <!-- Specialists -->
+      <div class="spec-col">
+        <div class="agent-node">
+          <div class="agent-icon trans">&#x1F310;</div>
+          <div class="agent-name">Translator</div>
+          <div class="agent-addr" id="addrTrans">0x&hellip;</div>
+          <div class="agent-price">$0.002 / call</div>
+          <div class="agent-status"><div class="dot" id="dotTrans"></div><span>:4001</span></div>
+        </div>
+        <div class="agent-node">
+          <div class="agent-icon summ">&#x1F4DD;</div>
+          <div class="agent-name">Summarizer</div>
+          <div class="agent-addr" id="addrSumm">0x&hellip;</div>
+          <div class="agent-price">$0.003 / call</div>
+          <div class="agent-status"><div class="dot" id="dotSumm"></div><span>:4002</span></div>
+        </div>
+        <div class="agent-node">
+          <div class="agent-icon sent">&#x1F4CA;</div>
+          <div class="agent-name">Sentiment</div>
+          <div class="agent-addr" id="addrSent">0x&hellip;</div>
+          <div class="agent-price">$0.001 / call</div>
+          <div class="agent-status"><div class="dot" id="dotSent"></div><span>:4003</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS ROW (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Live Statistics</span>
+    <span class="tag" id="uptimeTag">00:00:00</span>
+  </div>
+  <div class="card-body">
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-val blue" id="statTotal">0</div>
+        <div class="stat-label">Total Transactions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val green" id="statSpent">$0.000</div>
+        <div class="stat-label">USDC Spent</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val cyan" id="statLatency">0ms</div>
+        <div class="stat-label">Avg Latency</div>
+      </div>
+      <div class="stat-box">
+        <div class="bar-chart" id="barChart">
+          <div class="bar-col">
+            <div class="bar-count" id="barCountTrans">0</div>
+            <div class="bar translator" id="barTrans" style="height:2px"></div>
+            <div class="bar-label">TRNS</div>
+          </div>
+          <div class="bar-col">
+            <div class="bar-count" id="barCountSumm">0</div>
+            <div class="bar summarizer" id="barSumm" style="height:2px"></div>
+            <div class="bar-label">SUMM</div>
+          </div>
+          <div class="bar-col">
+            <div class="bar-count" id="barCountSent">0</div>
+            <div class="bar sentiment" id="barSent" style="height:2px"></div>
+            <div class="bar-label">SENT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSACTION FEED -->
+<div class="card">
+  <div class="card-head">
+    <span>Transaction Feed</span>
+    <span class="tag" id="feedCount">0 txs</span>
+  </div>
+  <div class="feed" id="txFeed">
+    <div class="feed-empty" id="feedEmpty">Waiting for agent transactions&hellip;</div>
+  </div>
+</div>
+
+<!-- PIPELINE RUNNER -->
+<div class="card">
+  <div class="card-head">
+    <span>Pipeline Runner</span>
+    <span class="tag">3-agent chain</span>
+  </div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-row full">
+        <textarea class="input-area" id="pipeInput" placeholder="Enter text to process through the agent pipeline&#10;Sentiment → Summary → Translation"></textarea>
+      </div>
+      <div class="form-row" style="align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <select class="lang-sel" id="langSel">
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+            <option value="de">German</option>
+          </select>
+          <button class="btn btn-primary" id="btnRun" onclick="runPipeline()">
+            <span class="spinner"></span>Run Pipeline &mdash; $0.006
+          </button>
+        </div>
+        <button class="btn btn-purple" id="btnBatch" onclick="runBatch()">
+          <span class="spinner"></span>Batch Demo (60 txs)
+        </button>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-ghost" id="btnDeposit" onclick="doDeposit()">
+          <span class="spinner"></span>Deposit 5 USDC
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div class="result-box" id="pipeResult">
+        <div class="result-label">Sentiment</div>
+        <div class="result-val" id="resSentiment"></div>
+        <div class="result-label" style="margin-top:.4rem">Summary</div>
+        <div class="result-val" id="resSummary"></div>
+        <div class="result-label" style="margin-top:.4rem">Translation</div>
+        <div class="result-val hl" id="resTranslation"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MARGIN ANALYSIS (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Margin Analysis &mdash; Why Nanopayments Matter</span>
+    <span class="tag">economic proof</span>
+  </div>
+  <div class="card-body">
+    <table class="margin-table">
+      <thead>
+        <tr>
+          <th>Settlement Method</th>
+          <th>Cost per Tx</th>
+          <th>Our $0.001 Payment</th>
+          <th style="text-align:center">Viable?</th>
+          <th>Margin Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="method">Ethereum L1</td>
+          <td class="cost bad">$0.50 &ndash; $5.00</td>
+          <td class="cost bad">&minus;$0.499 to &minus;$4.999</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--red);font-size:.65rem">Gas exceeds payment by 500&times;&ndash;5000&times;</td>
+        </tr>
+        <tr>
+          <td class="method">L2 Rollup (Base, Arb)</td>
+          <td class="cost ok">$0.01 &ndash; $0.10</td>
+          <td class="cost bad">&minus;$0.009 to &minus;$0.099</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--yellow);font-size:.65rem">Gas still 10&times;&ndash;100&times; the payment</td>
+        </tr>
+        <tr>
+          <td class="method">Stripe / PayPal</td>
+          <td class="cost ok">$0.30 + 2.9%</td>
+          <td class="cost bad">&minus;$0.299</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--yellow);font-size:.65rem">$0.30 minimum fee kills micro-txs</td>
+        </tr>
+        <tr style="background:var(--green-dim)">
+          <td class="method" style="color:var(--green)">&#x2728; Arc + Nanopayments</td>
+          <td class="cost good">~$0.000</td>
+          <td class="cost good">+$0.001 (full margin)</td>
+          <td class="viable"><span class="check-mark">&check;</span></td>
+          <td style="color:var(--green);font-size:.65rem;font-weight:600">100% margin &mdash; gas-free batched settlement</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="margin-note">
+      Circle Gateway batches thousands of signed payment authorizations into a single on-chain settlement.
+      Buyers sign EIP-3009 authorizations off-chain at zero gas cost, making sub-cent agent-to-agent
+      payments economically viable for the first time. Our demo processes 60+ transactions at $0.001&ndash;$0.003
+      each &mdash; a model that would lose money on every other payment rail.
+    </div>
+  </div>
+</div>
+
+</div><!-- /grid-main -->
+</div><!-- /shell -->
+
+<script>
+// === STATE ===
+const txList = [];
+let sseConnected = false;
+let startTime = Date.now();
+
+// === DOM REFS ===
+const $=id=>document.getElementById(id);
+
+// === SSE STREAM ===
+function connectSSE() {
+  const es = new EventSource('/api/stream');
+  es.onopen = () => {
+    sseConnected = true;
+    $('connStatus').textContent = 'Live';
+    $('liveDot').style.background = 'var(--green)';
+  };
+  es.onmessage = (e) => {
+    try {
+      const tx = JSON.parse(e.data);
+      addTransaction(tx);
+      refreshStats();
+      flashArrow(tx.to);
+    } catch {}
+  };
+  es.onerror = () => {
+    sseConnected = false;
+    $('connStatus').textContent = 'Reconnecting\u2026';
+    $('liveDot').style.background = 'var(--yellow)';
+  };
+}
+
+// === TRANSACTIONS ===
+function addTransaction(tx) {
+  // Avoid duplicates
+  if (txList.find(t => t.id === tx.id)) {
+    const idx = txList.findIndex(t => t.id === tx.id);
+    txList[idx] = tx;
+    return;
+  }
+  txList.unshift(tx);
+  renderFeed();
+}
+
+function agentClass(name) {
+  if (name === 'orchestrator') return 'orch';
+  if (name === 'translator') return 'trans';
+  if (name === 'summarizer') return 'summ';
+  if (name === 'sentiment') return 'sent';
+  return '';
+}
+
+function agentLabel(name) {
+  return name.charAt(0).toUpperCase() + name.slice(1, 4);
+}
+
+function renderFeed() {
+  const feed = $('txFeed');
+  if (!txList.length) return;
+  $('feedEmpty')?.remove();
+
+  // Only render last 100
+  const slice = txList.slice(0, 100);
+  feed.innerHTML = slice.map((tx, i) => {
+    const time = new Date(tx.timestamp).toLocaleTimeString('en-US', {hour12:false});
+    return `<div class="tx-row${i === 0 ? ' new' : ''}">
+      <span class="tx-time">${time}</span>
+      <span class="tx-flow">
+        <span class="tx-agent ${agentClass(tx.from)}">${agentLabel(tx.from)}</span>
+        <span class="tx-arrow">&rarr;</span>
+        <span class="tx-agent ${agentClass(tx.to)}">${agentLabel(tx.to)}</span>
+      </span>
+      <span class="tx-svc">${tx.service}</span>
+      <span class="tx-amt">${tx.amount}</span>
+      <span class="tx-status"><span class="tx-badge ${tx.status}">${tx.status}</span></span>
+      <span class="tx-lat">${tx.latencyMs ? tx.latencyMs + 'ms' : '—'}</span>
+    </div>`;
+  }).join('');
+
+  $('feedCount').textContent = txList.length + ' txs';
+}
+
+// === STATS ===
+function refreshStats() {
+  const completed = txList.filter(t => t.status === 'completed');
+  const total = txList.length;
+
+  $('statTotal').textContent = total;
+
+  // Calculate total USDC spent from amounts like "$0.002"
+  let spent = 0;
+  completed.forEach(tx => {
+    const num = parseFloat(tx.amount.replace('$', ''));
+    if (!isNaN(num)) spent += num;
+  });
+  $('statSpent').textContent = '$' + spent.toFixed(4);
+
+  // Avg latency
+  const avgLat = completed.reduce((s, t) => s + (t.latencyMs || 0), 0) / (completed.length || 1);
+  $('statLatency').textContent = Math.round(avgLat) + 'ms';
+
+  // Bar chart
+  const byAgent = { translator: 0, summarizer: 0, sentiment: 0 };
+  completed.forEach(tx => { if (byAgent[tx.to] !== undefined) byAgent[tx.to]++; });
+  const maxCount = Math.max(1, ...Object.values(byAgent));
+
+  $('barTrans').style.height = Math.max(2, (byAgent.translator / maxCount) * 50) + 'px';
+  $('barSumm').style.height = Math.max(2, (byAgent.summarizer / maxCount) * 50) + 'px';
+  $('barSent').style.height = Math.max(2, (byAgent.sentiment / maxCount) * 50) + 'px';
+  $('barCountTrans').textContent = byAgent.translator;
+  $('barCountSumm').textContent = byAgent.summarizer;
+  $('barCountSent').textContent = byAgent.sentiment;
+}
+
+// === ARROW FLASH ===
+function flashArrow(agentName) {
+  const arrowId = {translator:'arrowTrans',summarizer:'arrowSumm',sentiment:'arrowSent'}[agentName];
+  if (!arrowId) return;
+  const el = $(arrowId);
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 1200);
+}
+
+// === AGENT INFO ===
+async function loadAgents() {
+  try {
+    const resp = await fetch('/api/agents');
+    const data = await resp.json();
+    if (data.orchestrator) {
+      $('addrOrch').textContent = data.orchestrator.address || '—';
+      $('balOrch').textContent = data.orchestrator.gatewayBalance
+        ? data.orchestrator.gatewayBalance + ' USDC'
+        : data.orchestrator.error || '—';
+      $('dotOrch').classList.add('on');
+      $('statusOrch').textContent = 'online';
+    }
+    if (data.agents) {
+      const a = data.agents;
+      if (a.translator) { $('addrTrans').textContent = a.translator.address; $('dotTrans').classList.add('on'); }
+      if (a.summarizer) { $('addrSumm').textContent = a.summarizer.address; $('dotSumm').classList.add('on'); }
+      if (a.sentiment) { $('addrSent').textContent = a.sentiment.address; $('dotSent').classList.add('on'); }
+    }
+  } catch {
+    $('connStatus').textContent = 'Offline';
+    $('liveDot').style.background = 'var(--red)';
+  }
+}
+
+// === LOAD EXISTING TXS ===
+async function loadTransactions() {
+  try {
+    const resp = await fetch('/api/transactions');
+    const data = await resp.json();
+    data.reverse().forEach(tx => addTransaction(tx));
+    refreshStats();
+  } catch {}
+}
+
+// === PIPELINE ===
+async function runPipeline() {
+  const text = $('pipeInput').value.trim();
+  if (!text) return;
+  const lang = $('langSel').value;
+  const btn = $('btnRun');
+  btn.classList.add('loading');
+
+  try {
+    const resp = await fetch('/api/pipeline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, targetLang: lang })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    $('resSentiment').textContent = `${data.sentiment.sentiment} (score: ${data.sentiment.score}, confidence: ${(data.sentiment.confidence * 100).toFixed(0)}%)`;
+    $('resSummary').textContent = data.summary;
+    $('resTranslation').textContent = data.translation;
+    $('pipeResult').classList.add('visible');
+  } catch (err) {
+    alert('Pipeline error: ' + err.message);
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// === BATCH DEMO ===
+async function runBatch() {
+  const btn = $('btnBatch');
+  btn.classList.add('loading');
+  btn.textContent = 'Running\u2026';
+
+  const texts = [
+    "Bitcoin just hit a new all-time high as institutional adoption accelerates globally.",
+    "The Federal Reserve announced a surprise rate cut, sending markets into a rally.",
+    "Ethereum latest upgrade reduced gas fees by 90%, making DeFi accessible to millions.",
+    "Circle USDC stablecoin now processes over $10 trillion in annual volume on Arc.",
+    "AI agents are revolutionizing financial markets with sub-millisecond precision.",
+    "The terrible crash in the bond market has left investors worried about recession.",
+    "Apple announced amazing quarterly earnings, beating analyst expectations widely.",
+    "Climate legislation faces strong opposition, creating uncertainty for green energy.",
+    "New cryptocurrency regulations provide excellent clarity for institutional investors.",
+    "Supply chain disruptions continue to cause problems for manufacturing in Asia.",
+    "Machine learning models now predict market movements with unprecedented accuracy.",
+    "The housing market shows signs of recovery after prolonged price declines.",
+    "Central banks worldwide are exploring digital currencies for monetary policy.",
+    "The worst drought in decades threatens agricultural output and food security.",
+    "Nanopayments technology enables micropayments as small as one millionth of a dollar.",
+    "The gig economy continues to grow, creating wonderful opportunities for freelancers.",
+    "Cybersecurity threats require advanced AI-powered defense systems to combat.",
+    "Electric vehicle market experienced tremendous growth with sales doubling YoY.",
+    "International trade tensions escalated with new tariffs on technology imports.",
+    "Decentralized finance protocols now manage over $500B in total value locked.",
+  ];
+
+  const langs = ["es","fr","zh","ja","de"];
+
+  for (let i = 0; i < texts.length; i++) {
+    btn.innerHTML = `<span class="spinner" style="display:block"></span> ${i+1}/${texts.length}`;
+    try {
+      await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text: texts[i], targetLang: langs[i % langs.length] })
+      });
+    } catch {}
+    // Small delay to not overwhelm
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  btn.classList.remove('loading');
+  btn.innerHTML = '<span class="spinner"></span>Batch Demo (60 txs)';
+}
+
+// === DEPOSIT ===
+async function doDeposit() {
+  const btn = $('btnDeposit');
+  btn.classList.add('loading');
+  try {
+    const resp = await fetch('/api/deposit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ amount: '5' })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert('Deposit successful!');
+    loadAgents();
+  } catch (err) {
+    alert('Deposit error: ' + err.message);
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// === UPTIME CLOCK ===
+function tickUptime() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  $('uptimeTag').textContent = h + ':' + m + ':' + s;
+}
+
+// === INIT ===
+connectSSE();
+loadAgents();
+loadTransactions();
+setInterval(tickUptime, 1000);
+setInterval(loadAgents, 30000);
+</script>
+</body>
+</html>

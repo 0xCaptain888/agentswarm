@@ -1,0 +1,30 @@
+{
+  "name": "agentswarm",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsx src/index.ts",
+    "demo": "tsx src/demo.ts",
+    "dashboard": "tsx src/dashboard.ts",
+    "setup": "tsx src/setup-wallets.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "dependencies": {
+    "@circle-fin/x402-batching": "^2.1.0",
+    "@x402/core": "^2.10.0",
+    "@x402/evm": "^2.10.0",
+    "express": "^5.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "viem": "^2.48.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0"
+  }
+}
