@@ -3,6 +3,7 @@
 
 import express from "express";
 import { createGatewayMiddleware } from "@circle-fin/x402-batching/server";
+import { GatewayClient } from "@circle-fin/x402-batching/client";
 import { privateKeyToAccount } from "viem/accounts";
 import { CONFIG } from "./config.js";
 import { tracker } from "./tracker.js";
@@ -110,7 +111,7 @@ export function createTranslatorAgent(walletKey: `0x${string}`) {
   return { app, address: account.address };
 }
 
-export function createSummarizerAgent(walletKey: `0x${string}`) {
+export function createSummarizerAgent(walletKey: `0x${string}`, summarizerPrivateKey?: `0x${string}`) {
   const account = privateKeyToAccount(walletKey);
   const app = express();
   app.use(express.json());
@@ -120,11 +121,22 @@ export function createSummarizerAgent(walletKey: `0x${string}`) {
     networks: [`eip155:${CONFIG.chainId}`],
   });
 
+  // Optional: GatewayClient so the Summarizer can pay the Sentiment agent
+  // Creates circular economy: Orchestrator -> Summarizer -> Sentiment
+  let sentimentClient: GatewayClient | null = null;
+  if (summarizerPrivateKey) {
+    sentimentClient = new GatewayClient({
+      chain: CONFIG.chain,
+      privateKey: summarizerPrivateKey,
+    });
+    console.log(`[Summarizer] Initialized with GatewayClient to pay Sentiment agent`);
+  }
+
   app.get("/health", (_req, res) => {
-    res.json({ agent: "summarizer", status: "ok", address: account.address });
+    res.json({ agent: "summarizer", status: "ok", address: account.address, canPaySentiment: !!sentimentClient });
   });
 
-  app.post("/summarize", gateway.require(CONFIG.pricing.summarizer), (req, res) => {
+  app.post("/summarize", gateway.require(CONFIG.pricing.summarizer), async (req, res) => {
     const { text } = (req.body || {}) as any;
     if (!text) {
       res.status(400).json({ error: "Missing 'text' field" });
@@ -132,7 +144,44 @@ export function createSummarizerAgent(walletKey: `0x${string}`) {
     }
 
     const start = Date.now();
-    const result = simulateSummarization(text);
+
+    // If we have a sentiment client, call Sentiment agent first to understand tone
+    // This creates the circular economy: Orchestrator -> Summarizer -> Sentiment
+    let sentimentHint: { sentiment: string; score: number } | null = null;
+    if (sentimentClient) {
+      try {
+        const sentimentUrl = `http://localhost:${CONFIG.ports.sentiment}/analyze`;
+        console.log(`[Summarizer] Paying Sentiment agent for tone analysis...`);
+        const { data: sentimentData, formattedAmount } = await sentimentClient.pay<{
+          result: { sentiment: string; score: number; confidence: number };
+        }>(sentimentUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        sentimentHint = { sentiment: sentimentData.result.sentiment, score: sentimentData.result.score };
+        console.log(`[Summarizer] Sentiment hint: ${sentimentHint.sentiment} (${sentimentHint.score}). Paid ${formattedAmount} USDC.`);
+
+        tracker.record({
+          from: "summarizer",
+          to: "sentiment",
+          amount: CONFIG.pricing.sentiment,
+          service: "sentiment-analysis",
+          status: "completed",
+          input: text.substring(0, 100),
+          output: JSON.stringify(sentimentHint).substring(0, 100),
+        });
+      } catch (err: any) {
+        console.error(`[Summarizer] Sentiment call failed (continuing without): ${err.message}`);
+      }
+    }
+
+    // Include sentiment hint in the summary if available
+    let result = simulateSummarization(text);
+    if (sentimentHint) {
+      result = `${result} [Tone: ${sentimentHint.sentiment}, score: ${sentimentHint.score}]`;
+    }
+
     const latencyMs = Date.now() - start;
 
     const payment = (req as any).payment;
@@ -151,6 +200,7 @@ export function createSummarizerAgent(walletKey: `0x${string}`) {
     res.json({
       agent: "summarizer",
       result,
+      sentimentHint,
       paidBy: payment?.payer,
       price: CONFIG.pricing.summarizer,
     });

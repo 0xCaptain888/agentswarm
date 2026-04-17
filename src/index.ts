@@ -20,7 +20,7 @@ async function main() {
   console.log("=== Starting AgentSwarm ===\n");
 
   const translator = createTranslatorAgent(keys.translatorKey);
-  const summarizer = createSummarizerAgent(keys.summarizerKey);
+  const summarizer = createSummarizerAgent(keys.summarizerKey, keys.summarizerKey);
   const sentiment = createSentimentAgent(keys.sentimentKey);
 
   translator.app.listen(CONFIG.ports.translator, () => {
@@ -123,6 +123,21 @@ async function main() {
       const results = await orchestrator.batchProcess(texts, targetLang);
       const stats = tracker.getStats();
       res.json({ results, stats });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API: Research & analyze with real AIsa x402 data
+  dashApp.post("/api/research", async (req, res) => {
+    try {
+      const { topic, targetLang = "es" } = req.body;
+      if (!topic) {
+        res.status(400).json({ error: "Missing 'topic' field" });
+        return;
+      }
+      const result = await orchestrator.researchAndAnalyze(topic, targetLang);
+      res.json(result);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

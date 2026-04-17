@@ -85,11 +85,74 @@ async function runDemo() {
   }
 
   // Print final stats
-  console.log("\n\n=== Demo Complete ===");
+  console.log("\n\n=== Pipeline Demo Complete ===");
   console.log(`Successful pipelines: ${successCount}/${SAMPLE_TEXTS.length}`);
   console.log(`Failed pipelines: ${failCount}/${SAMPLE_TEXTS.length}`);
   console.log(`Total agent-to-agent transactions: ${successCount * 3}`);
   console.log(`Total USDC spent: $${(successCount * 0.006).toFixed(4)}`);
+
+  // ============================================================
+  // Part 2: Research & Analyze with real AIsa x402 APIs
+  // ============================================================
+
+  const RESEARCH_TOPICS = [
+    "jack",          // Jack Dorsey's Twitter profile
+    "elonmusk",      // Elon Musk
+    "circle",        // Circle (USDC)
+    "vabordi",       // Crypto personality
+    "ethereum",      // Ethereum
+  ];
+
+  console.log("\n\n=== AIsa Research Demo: Real x402 API Calls ===\n");
+  console.log(`Researching ${RESEARCH_TOPICS.length} topics via AIsa x402 APIs`);
+  console.log(`Each research pipeline: AIsa Twitter ($0.000440) -> Sentiment ($0.001) -> Summary ($0.003) -> Translation ($0.002)`);
+  console.log(`Total expected cost per pipeline: $0.006440\n`);
+
+  let researchSuccessCount = 0;
+  let researchFailCount = 0;
+
+  for (let i = 0; i < RESEARCH_TOPICS.length; i++) {
+    const topic = RESEARCH_TOPICS[i]!;
+    const lang = TARGET_LANGS[i % TARGET_LANGS.length]!;
+
+    console.log(`\n[R${i + 1}/${RESEARCH_TOPICS.length}] Researching: "${topic}" (translate to ${lang})`);
+
+    try {
+      const resp = await fetch(`${baseUrl}/api/research`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, targetLang: lang }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+
+      const result: any = await resp.json();
+      researchSuccessCount++;
+      console.log(`  + Twitter data: ${result.twitterData ? "REAL" : "fallback"}`);
+      console.log(`  + Sentiment: ${result.sentiment.sentiment} (${result.sentiment.score})`);
+      console.log(`  + Summary: ${result.summary.substring(0, 60)}...`);
+      console.log(`  + Translation [${lang}]: ${result.translation.substring(0, 60)}...`);
+      console.log(`  Cost: ${result.totalCost}`);
+    } catch (err: any) {
+      researchFailCount++;
+      console.error(`  x Failed: ${err.message}`);
+    }
+  }
+
+  console.log("\n\n=== Research Demo Complete ===");
+  console.log(`Successful research pipelines: ${researchSuccessCount}/${RESEARCH_TOPICS.length}`);
+  console.log(`Failed research pipelines: ${researchFailCount}/${RESEARCH_TOPICS.length}`);
+  console.log(`Research transactions: ${researchSuccessCount * 4} (4 steps each)`);
+
+  // Combined stats
+  const totalTx = (successCount * 3) + (researchSuccessCount * 4);
+  const totalCost = (successCount * 0.006) + (researchSuccessCount * 0.00644);
+  console.log(`\n=== Combined Totals ===`);
+  console.log(`Total transactions (pipeline + research): ${totalTx}`);
+  console.log(`Total USDC spent: $${totalCost.toFixed(4)}`);
 
   // Get final stats from server
   try {

@@ -5,9 +5,11 @@
 import { GatewayClient } from "@circle-fin/x402-batching/client";
 import { CONFIG } from "./config.js";
 import { tracker } from "./tracker.js";
+import { AisaClient } from "./aisa-client.js";
 
 export class OrchestratorAgent {
   private client: GatewayClient;
+  private aisaClient: AisaClient;
   private baseUrls: {
     translator: string;
     summarizer: string;
@@ -19,6 +21,8 @@ export class OrchestratorAgent {
       chain: CONFIG.chain,
       privateKey,
     });
+
+    this.aisaClient = new AisaClient(this.client);
 
     this.baseUrls = {
       translator: `http://localhost:${CONFIG.ports.translator}`,
@@ -133,6 +137,81 @@ export class OrchestratorAgent {
       translation: translation.result,
       totalCost: "$0.006",
       steps: [
+        { agent: "sentiment", cost: CONFIG.pricing.sentiment },
+        { agent: "summarizer", cost: CONFIG.pricing.summarizer },
+        { agent: "translator", cost: CONFIG.pricing.translator },
+      ],
+    };
+  }
+
+  // Research pipeline: fetch real data via AIsa, then analyze with agents
+  // Demonstrates real x402 API calls + agent-to-agent payments
+  async researchAndAnalyze(topic: string, targetLang = "es") {
+    console.log("\n=== Starting Research & Analyze Pipeline ===");
+    console.log(`Topic: "${topic}"`);
+
+    // Step 1: Fetch real Twitter data via AIsa x402 API ($0.000440)
+    // Use topic as a Twitter username hint, or default to "jack"
+    const twitterUser = topic.replace(/[^a-zA-Z0-9_]/g, "").substring(0, 15) || "jack";
+    const twitterResult = await this.aisaClient.fetchTwitterUser(twitterUser);
+
+    let researchText: string;
+    if (twitterResult.data) {
+      researchText = `Twitter profile for @${twitterResult.data.username || twitterUser}: ` +
+        `${twitterResult.data.name || "Unknown"} - ${twitterResult.data.description || "No description"}. ` +
+        `Followers: ${twitterResult.data.followers_count ?? "N/A"}, ` +
+        `Following: ${twitterResult.data.following_count ?? "N/A"}, ` +
+        `Tweets: ${twitterResult.data.tweet_count ?? "N/A"}.`;
+
+      tracker.record({
+        from: "orchestrator",
+        to: "aisa-twitter",
+        amount: "$0.000440",
+        service: "twitter-user-info",
+        status: "completed",
+        input: `@${twitterUser}`,
+        output: researchText.substring(0, 100),
+      });
+    } else {
+      // Fallback if AIsa API call fails
+      researchText = `Research on topic "${topic}": This is a simulated research result as the live API was unavailable. ` +
+        `The topic appears to be trending with significant public interest and mixed sentiment across social media platforms.`;
+
+      tracker.record({
+        from: "orchestrator",
+        to: "aisa-twitter",
+        amount: "$0.000000",
+        service: "twitter-user-info",
+        status: "failed",
+        input: `@${twitterUser}`,
+        output: twitterResult.error || "API unavailable",
+      });
+    }
+
+    console.log(`[Research] Data gathered: "${researchText.substring(0, 80)}..."`);
+
+    // Step 2: Sentiment analysis on the research data ($0.001)
+    const sentiment = await this.analyzeSentiment(researchText);
+
+    // Step 3: Summarize the research + sentiment ($0.003)
+    const enrichedText = `${researchText} Sentiment analysis: ${sentiment.result.sentiment} ` +
+      `(score: ${sentiment.result.score}, confidence: ${sentiment.result.confidence.toFixed(2)}).`;
+    const summary = await this.summarize(enrichedText);
+
+    // Step 4: Translate the summary ($0.002)
+    const translation = await this.translate(summary.result, targetLang);
+
+    // Total: $0.000440 (AIsa) + $0.001 + $0.003 + $0.002 = $0.006440
+    return {
+      topic,
+      twitterData: twitterResult.data,
+      researchText,
+      sentiment: sentiment.result,
+      summary: summary.result,
+      translation: translation.result,
+      totalCost: "$0.006440",
+      steps: [
+        { agent: "aisa-twitter", cost: twitterResult.cost, real: !twitterResult.error },
         { agent: "sentiment", cost: CONFIG.pricing.sentiment },
         { agent: "summarizer", cost: CONFIG.pricing.summarizer },
         { agent: "translator", cost: CONFIG.pricing.translator },
