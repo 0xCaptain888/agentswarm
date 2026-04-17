@@ -42,6 +42,10 @@ async function main() {
   // 3. Dashboard + API server
   const dashApp = express();
   dashApp.use(express.json());
+  // Handle BigInt serialization
+  dashApp.set("json replacer", (_key: string, value: any) =>
+    typeof value === "bigint" ? value.toString() : value
+  );
   dashApp.use(express.static(join(__dirname, "..", "public")));
 
   // API: Get all transactions
