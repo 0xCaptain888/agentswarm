@@ -19,7 +19,7 @@ async function main() {
   // 1. Start specialist agent servers
   console.log("=== Starting AgentSwarm ===\n");
 
-  const translator = createTranslatorAgent(keys.translatorKey);
+  const translator = createTranslatorAgent(keys.translatorKey, keys.translatorKey);
   const summarizer = createSummarizerAgent(keys.summarizerKey, keys.summarizerKey);
   const sentiment = createSentimentAgent(keys.sentimentKey);
 
@@ -55,6 +55,24 @@ async function main() {
     }
   } catch (err: any) {
     console.error(`[Summarizer] Gateway deposit failed: ${err.message}`);
+  }
+
+  // 2c. Ensure Translator has Gateway deposit for circular economy
+  // (Translator pays Sentiment agent internally)
+  try {
+    const translatorClient = new (await import("@circle-fin/x402-batching/client")).GatewayClient({
+      chain: CONFIG.chain,
+      privateKey: keys.translatorKey,
+    });
+    const translatorBal = await translatorClient.getBalances();
+    console.log(`[Translator] Gateway balance: ${translatorBal.gateway.formattedAvailable} USDC`);
+    if (translatorBal.gateway.available < 500_000n) {
+      console.log(`[Translator] Depositing 2 USDC into Gateway for circular economy...`);
+      const dep = await translatorClient.deposit("2");
+      console.log(`[Translator] Deposit tx: ${dep.depositTxHash}`);
+    }
+  } catch (err: any) {
+    console.error(`[Translator] Gateway deposit failed: ${err.message}`);
   }
 
   // 3. Dashboard + API server
