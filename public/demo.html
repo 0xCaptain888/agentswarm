@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentSwarm — Live Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* === RESET & FOUNDATION === */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:        #06080c;
+  --bg-card:   #0b0e14;
+  --bg-raised: #10141c;
+  --border:    #1a1f2e;
+  --border-hi: #252c3e;
+  --text:      #c8cdd8;
+  --text-dim:  #5c6478;
+  --text-mute: #3a4050;
+  --blue:      #1AA3FF;
+  --blue-dim:  #1AA3FF33;
+  --purple:    #7C3AED;
+  --purple-dim:#7C3AED33;
+  --green:     #22c55e;
+  --green-dim: #22c55e22;
+  --yellow:    #eab308;
+  --yellow-dim:#eab30822;
+  --red:       #ef4444;
+  --red-dim:   #ef444422;
+  --cyan:      #06b6d4;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+}
+html{font-size:13px;background:var(--bg);color:var(--text);font-family:var(--font-mono)}
+body{min-height:100vh;overflow-x:hidden}
+input,select,button,textarea{font-family:inherit;font-size:inherit;color:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:2px}
+
+/* === AMBIENT BACKGROUND === */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-1;
+  background:
+    radial-gradient(ellipse 800px 400px at 20% 10%, var(--blue-dim), transparent),
+    radial-gradient(ellipse 600px 500px at 80% 80%, var(--purple-dim), transparent),
+    var(--bg);
+}
+
+/* === SCANLINE OVERLAY === */
+body::after{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* === LAYOUT === */
+.shell{max-width:1440px;margin:0 auto;padding:1rem 1.25rem 3rem}
+
+/* === DEMO BANNER === */
+.demo-banner{
+  background:linear-gradient(90deg, #1AA3FF18, #7C3AED18, #1AA3FF18);
+  border-bottom:1px solid var(--border);
+  padding:.55rem 1rem;
+  text-align:center;
+  font-size:.75rem;
+  color:var(--text);
+  font-family:var(--font-mono);
+  letter-spacing:.02em;
+  display:flex;align-items:center;justify-content:center;gap:.6rem;
+}
+.demo-banner .pulse-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:blink 1.5s infinite;
+  flex-shrink:0;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* === DEMO MODAL === */
+.demo-modal-overlay{
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.65);
+  place-items:center;
+}
+.demo-modal-overlay.visible{display:grid}
+.demo-modal{
+  background:var(--bg-card);border:1px solid var(--border-hi);border-radius:12px;
+  padding:2rem 2.5rem;max-width:460px;text-align:center;
+  box-shadow:0 0 60px rgba(0,0,0,.6);
+}
+.demo-modal h2{font-family:var(--font-display);font-size:1.3rem;color:#fff;margin-bottom:.6rem}
+.demo-modal p{font-size:.8rem;color:var(--text-dim);line-height:1.6;margin-bottom:1.2rem}
+.demo-modal a{color:var(--blue);text-decoration:none}
+.demo-modal a:hover{text-decoration:underline}
+.demo-modal .btn-close{
+  padding:.4rem 1.2rem;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg-raised);color:var(--text);cursor:pointer;font-family:var(--font-mono);font-size:.75rem;
+}
+.demo-modal .btn-close:hover{border-color:var(--text-dim)}
+
+/* === HEADER === */
+.header{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;padding:1.5rem 0 1rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem}
+.header-left{display:flex;align-items:center;gap:1rem}
+.logo-glyph{
+  width:40px;height:40px;border-radius:8px;
+  background:linear-gradient(135deg, var(--blue), var(--purple));
+  display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:1.3rem;color:#fff;
+  box-shadow:0 0 20px var(--blue-dim), 0 0 40px var(--purple-dim);
+  animation:pulse-glow 3s ease-in-out infinite alternate;
+}
+@keyframes pulse-glow{0%{box-shadow:0 0 15px var(--blue-dim)}100%{box-shadow:0 0 25px var(--blue-dim),0 0 50px var(--purple-dim)}}
+.brand h1{font-family:var(--font-display);font-weight:800;font-size:1.6rem;letter-spacing:-0.02em;color:#fff;line-height:1}
+.brand p{font-size:.75rem;color:var(--text-dim);margin-top:.2rem;letter-spacing:.04em}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+.chain-tag{font-size:.7rem;color:var(--text-dim);background:var(--bg-raised);border:1px solid var(--border);padding:.2rem .6rem;border-radius:4px}
+
+/* === GRID === */
+.grid-main{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:1.25rem}
+.col-span-2{grid-column:1/-1}
+
+/* === CARD === */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--border-hi),transparent)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem;border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)}
+.card-head .tag{font-size:.6rem;padding:.15rem .45rem;border-radius:3px;background:var(--bg-raised);border:1px solid var(--border)}
+.card-body{padding:.9rem}
+
+/* === AGENT NETWORK TOPOLOGY === */
+.topo{display:flex;align-items:center;justify-content:center;gap:0;position:relative;padding:1.5rem .5rem}
+.agent-node{
+  display:flex;flex-direction:column;align-items:center;gap:.4rem;z-index:2;
+  flex:0 0 auto;width:130px;text-align:center;
+}
+.agent-icon{
+  width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;
+  border:1.5px solid var(--border-hi);background:var(--bg-raised);
+  transition:all .3s ease;position:relative;
+}
+.agent-icon.orch{border-color:var(--blue);box-shadow:0 0 12px var(--blue-dim)}
+.agent-icon.trans{border-color:#f59e0b;box-shadow:0 0 12px #f59e0b22}
+.agent-icon.summ{border-color:var(--purple);box-shadow:0 0 12px var(--purple-dim)}
+.agent-icon.sent{border-color:var(--cyan);box-shadow:0 0 12px #06b6d422}
+.agent-name{font-size:.7rem;font-weight:600;color:#fff}
+.agent-addr{font-size:.55rem;color:var(--text-mute);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-price{font-size:.6rem;color:var(--green);font-weight:500}
+.agent-status{font-size:.55rem;display:flex;align-items:center;gap:.3rem}
+.agent-status .dot{width:5px;height:5px;border-radius:50%}
+.agent-status .dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.agent-status .dot.off{background:var(--red);box-shadow:0 0 6px var(--red)}
+
+/* Connection lines */
+.topo-lines{position:absolute;inset:0;z-index:1;pointer-events:none}
+.topo-lines svg{width:100%;height:100%}
+.topo-line{stroke:var(--border-hi);stroke-width:1;fill:none;stroke-dasharray:4 4}
+.topo-line.active{stroke:var(--blue);stroke-dasharray:6 3;animation:dash 1.5s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+
+/* Specialist column */
+.spec-col{display:flex;flex-direction:column;gap:.8rem}
+.arrow-col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:80px;position:relative}
+.arrow-line{
+  width:60px;height:1px;background:var(--border-hi);position:relative;
+}
+.arrow-line::after{
+  content:'';position:absolute;right:-1px;top:-3px;
+  border:3px solid transparent;border-left:5px solid var(--border-hi);
+}
+.arrow-line.active{background:var(--blue);animation:arrow-pulse 2s ease infinite}
+.arrow-line.active::after{border-left-color:var(--blue)}
+@keyframes arrow-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* === STATS ROW === */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.stat-box{text-align:center;padding:.6rem}
+.stat-val{font-family:var(--font-display);font-size:2rem;font-weight:700;color:#fff;line-height:1.1}
+.stat-val.blue{color:var(--blue)}
+.stat-val.purple{color:var(--purple)}
+.stat-val.green{color:var(--green)}
+.stat-val.cyan{color:var(--cyan)}
+.stat-label{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:.3rem}
+
+/* Agent bar chart */
+.bar-chart{display:flex;align-items:flex-end;gap:.5rem;height:60px;padding-top:.5rem}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .5s ease}
+.bar.translator{background:linear-gradient(180deg,#f59e0b,#f59e0b88)}
+.bar.summarizer{background:linear-gradient(180deg,var(--purple),var(--purple)88)}
+.bar.sentiment{background:linear-gradient(180deg,var(--cyan),var(--cyan)88)}
+.bar-label{font-size:.5rem;color:var(--text-mute);text-transform:uppercase}
+.bar-count{font-size:.6rem;color:var(--text-dim);font-weight:600}
+
+/* === TRANSACTION FEED === */
+.feed{max-height:360px;overflow-y:auto;font-size:.72rem}
+.feed-empty{padding:2rem;text-align:center;color:var(--text-mute);font-style:italic}
+.tx-row{
+  display:grid;grid-template-columns:70px 1fr 90px 65px 50px 50px;align-items:center;gap:.5rem;
+  padding:.4rem .7rem;border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.tx-row:hover{background:var(--bg-raised)}
+.tx-row.new{animation:tx-flash .6s ease}
+@keyframes tx-flash{0%{background:var(--blue-dim)}100%{background:transparent}}
+.tx-time{color:var(--text-mute);font-size:.6rem}
+.tx-flow{display:flex;align-items:center;gap:.3rem}
+.tx-agent{padding:.1rem .35rem;border-radius:3px;font-size:.6rem;font-weight:500;white-space:nowrap}
+.tx-agent.orch{background:#1AA3FF18;color:var(--blue)}
+.tx-agent.trans{background:#f59e0b18;color:#f59e0b}
+.tx-agent.summ{background:#7C3AED18;color:var(--purple)}
+.tx-agent.sent{background:#06b6d418;color:var(--cyan)}
+.tx-arrow{color:var(--text-mute);font-size:.65rem}
+.tx-svc{color:var(--text-dim)}
+.tx-amt{color:var(--green);font-weight:500;text-align:right}
+.tx-status{text-align:center}
+.tx-badge{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;font-weight:500}
+.tx-badge.completed{background:var(--green-dim);color:var(--green)}
+.tx-badge.pending{background:var(--yellow-dim);color:var(--yellow)}
+.tx-badge.failed{background:var(--red-dim);color:var(--red)}
+.tx-lat{color:var(--text-mute);text-align:right;font-size:.6rem}
+
+/* === PIPELINE FORM === */
+.form-grid{display:grid;gap:.7rem}
+.form-row{display:flex;gap:.5rem}
+.form-row.full textarea{flex:1}
+textarea.input-area{
+  width:100%;min-height:65px;resize:vertical;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.5rem .7rem;color:var(--text);line-height:1.5;font-size:.75rem;
+  transition:border-color .2s;
+}
+textarea.input-area:focus{outline:none;border-color:var(--blue)}
+select.lang-sel{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.4rem .6rem;color:var(--text);cursor:pointer;min-width:100px;
+}
+select.lang-sel:focus{outline:none;border-color:var(--blue)}
+.btn{
+  padding:.45rem 1rem;border-radius:6px;border:1px solid transparent;
+  cursor:pointer;font-weight:600;font-size:.72rem;letter-spacing:.02em;
+  transition:all .2s;display:inline-flex;align-items:center;gap:.4rem;
+  white-space:nowrap;
+}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover:not(:disabled){background:#1590e0;box-shadow:0 0 16px var(--blue-dim)}
+.btn-purple{background:var(--purple);color:#fff;border-color:var(--purple)}
+.btn-purple:hover:not(:disabled){background:#6d28d9;box-shadow:0 0 16px var(--purple-dim)}
+.btn-ghost{background:transparent;color:var(--text-dim);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--text-dim);color:var(--text)}
+.btn .spinner{width:12px;height:12px;border:2px solid #fff4;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.btn.loading .spinner{display:block}
+.btn.loading{pointer-events:none;opacity:.7}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Result output */
+.result-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.6rem .8rem;font-size:.7rem;line-height:1.6;
+  max-height:200px;overflow-y:auto;display:none;
+}
+.result-box.visible{display:block}
+.result-label{font-size:.55rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+.result-val{color:var(--text)}
+.result-val.hl{color:var(--green)}
+
+/* === MARGIN ANALYSIS === */
+.margin-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.margin-table th{text-align:left;color:var(--text-dim);font-weight:500;padding:.45rem .6rem;border-bottom:1px solid var(--border);font-size:.6rem;text-transform:uppercase;letter-spacing:.05em}
+.margin-table td{padding:.45rem .6rem;border-bottom:1px solid var(--border)}
+.margin-table tr:last-child td{border-bottom:none}
+.margin-table .method{font-weight:500;color:#fff}
+.margin-table .cost{text-align:right;font-weight:600}
+.margin-table .cost.bad{color:var(--red)}
+.margin-table .cost.ok{color:var(--yellow)}
+.margin-table .cost.good{color:var(--green)}
+.margin-table .viable{text-align:center}
+.margin-table .x-mark{color:var(--red);font-weight:700;font-size:1rem}
+.margin-table .check-mark{color:var(--green);font-weight:700;font-size:1rem}
+.margin-note{font-size:.6rem;color:var(--text-mute);margin-top:.6rem;line-height:1.5;padding:0 .6rem}
+
+/* === RESPONSIVE === */
+@media(max-width:900px){
+  .grid-main{grid-template-columns:1fr}
+  .col-span-2{grid-column:1}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<!-- DEMO BANNER -->
+<div class="demo-banner">
+  <span class="pulse-dot"></span>
+  <span>LIVE DEMO &mdash; Replaying 187 real agent-to-agent transactions on Arc Testnet</span>
+  <span class="pulse-dot"></span>
+</div>
+
+<!-- DEMO MODAL -->
+<div class="demo-modal-overlay" id="demoModal">
+  <div class="demo-modal">
+    <h2>Static Demo</h2>
+    <p>This is a static demo replaying real transaction data.<br>
+    To run the live version with real agents and on-chain payments, visit:<br>
+    <a href="https://github.com/0xCaptain888/agentswarm" target="_blank">github.com/0xCaptain888/agentswarm</a></p>
+    <button class="btn-close" onclick="document.getElementById('demoModal').classList.remove('visible')">Close</button>
+  </div>
+</div>
+<div class="shell">
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-glyph">A</div>
+    <div class="brand">
+      <h1>AgentSwarm</h1>
+      <p>AI Agent-to-Agent Payment Marketplace on Arc</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot" id="liveDot"></div>
+    <span class="chain-tag">Arc Testnet &middot; Chain 5042002</span>
+    <span class="chain-tag" id="connStatus">Demo Mode</span>
+  </div>
+</header>
+<!-- MAIN GRID -->
+<div class="grid-main">
+
+<!-- AGENT TOPOLOGY (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Agent Network Topology</span>
+    <span class="tag" id="agentCount">4 agents</span>
+  </div>
+  <div class="card-body">
+    <div class="topo" id="topoContainer">
+      <div class="agent-node">
+        <div class="agent-icon orch">&#x1F9E0;</div>
+        <div class="agent-name">Orchestrator</div>
+        <div class="agent-addr" id="addrOrch">0xE57826B93c268b49cC231492c7A22B01015cae9a</div>
+        <div class="agent-price" id="balOrch">9.53 USDC</div>
+        <div class="agent-status"><div class="dot on" id="dotOrch"></div><span id="statusOrch">online</span></div>
+      </div>
+      <div class="arrow-col">
+        <div class="arrow-line" id="arrowTrans"></div>
+        <div style="height:20px"></div>
+        <div class="arrow-line" id="arrowSumm"></div>
+        <div style="height:20px"></div>
+        <div class="arrow-line" id="arrowSent"></div>
+      </div>
+      <div class="spec-col">
+        <div class="agent-node">
+          <div class="agent-icon trans">&#x1F310;</div>
+          <div class="agent-name">Translator</div>
+          <div class="agent-addr" id="addrTrans">0xE6c18D7dC9145328250C1688A8D3c45Fb8c8787e</div>
+          <div class="agent-price">$0.002 / call</div>
+          <div class="agent-status"><div class="dot on" id="dotTrans"></div><span>:4001</span></div>
+        </div>
+        <div class="agent-node">
+          <div class="agent-icon summ">&#x1F4DD;</div>
+          <div class="agent-name">Summarizer</div>
+          <div class="agent-addr" id="addrSumm">0x5746cd283F49613050f9aC90b66Cf0e564cDA6B2</div>
+          <div class="agent-price">$0.003 / call</div>
+          <div class="agent-status"><div class="dot on" id="dotSumm"></div><span>:4002</span></div>
+        </div>
+        <div class="agent-node">
+          <div class="agent-icon sent">&#x1F4CA;</div>
+          <div class="agent-name">Sentiment</div>
+          <div class="agent-addr" id="addrSent">0xe34716299B2D40d8B2Ad8cb2Bc9cA80A6D1c6d36</div>
+          <div class="agent-price">$0.001 / call</div>
+          <div class="agent-status"><div class="dot on" id="dotSent"></div><span>:4003</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS ROW (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Live Statistics</span>
+    <span class="tag" id="uptimeTag">00:00:00</span>
+  </div>
+  <div class="card-body">
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-val blue" id="statTotal">0</div>
+        <div class="stat-label">Total Transactions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val green" id="statSpent">$0.000</div>
+        <div class="stat-label">USDC Spent</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val cyan" id="statLatency">0ms</div>
+        <div class="stat-label">Avg Latency</div>
+      </div>
+      <div class="stat-box">
+        <div class="bar-chart" id="barChart">
+          <div class="bar-col">
+            <div class="bar-count" id="barCountTrans">0</div>
+            <div class="bar translator" id="barTrans" style="height:2px"></div>
+            <div class="bar-label">TRNS</div>
+          </div>
+          <div class="bar-col">
+            <div class="bar-count" id="barCountSumm">0</div>
+            <div class="bar summarizer" id="barSumm" style="height:2px"></div>
+            <div class="bar-label">SUMM</div>
+          </div>
+          <div class="bar-col">
+            <div class="bar-count" id="barCountSent">0</div>
+            <div class="bar sentiment" id="barSent" style="height:2px"></div>
+            <div class="bar-label">SENT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSACTION FEED -->
+<div class="card">
+  <div class="card-head">
+    <span>Transaction Feed</span>
+    <span class="tag" id="feedCount">0 txs</span>
+  </div>
+  <div class="feed" id="txFeed">
+    <div class="feed-empty" id="feedEmpty">Replaying transactions&hellip;</div>
+  </div>
+</div>
+
+<!-- PIPELINE RUNNER -->
+<div class="card">
+  <div class="card-head">
+    <span>Pipeline Runner</span>
+    <span class="tag">3-agent chain</span>
+  </div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-row full">
+        <textarea class="input-area" id="pipeInput" placeholder="Enter text to process through the agent pipeline&#10;Sentiment &rarr; Summary &rarr; Translation"></textarea>
+      </div>
+      <div class="form-row" style="align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <select class="lang-sel" id="langSel">
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+            <option value="de">German</option>
+          </select>
+          <button class="btn btn-primary" id="btnRun" onclick="showDemoModal()">
+            <span class="spinner"></span>Run Pipeline &mdash; $0.006
+          </button>
+        </div>
+        <button class="btn btn-purple" id="btnBatch" onclick="showDemoModal()">
+          <span class="spinner"></span>Batch Demo (60 txs)
+        </button>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-ghost" id="btnDeposit" onclick="showDemoModal()">
+          <span class="spinner"></span>Deposit 5 USDC
+        </button>
+      </div>
+      <div class="result-box" id="pipeResult">
+        <div class="result-label">Sentiment</div>
+        <div class="result-val" id="resSentiment"></div>
+        <div class="result-label" style="margin-top:.4rem">Summary</div>
+        <div class="result-val" id="resSummary"></div>
+        <div class="result-label" style="margin-top:.4rem">Translation</div>
+        <div class="result-val hl" id="resTranslation"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MARGIN ANALYSIS (full width) -->
+<div class="card col-span-2">
+  <div class="card-head">
+    <span>Margin Analysis &mdash; Why Nanopayments Matter</span>
+    <span class="tag">economic proof</span>
+  </div>
+  <div class="card-body">
+    <table class="margin-table">
+      <thead>
+        <tr>
+          <th>Settlement Method</th>
+          <th>Cost per Tx</th>
+          <th>Our $0.001 Payment</th>
+          <th style="text-align:center">Viable?</th>
+          <th>Margin Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="method">Ethereum L1</td>
+          <td class="cost bad">$0.50 &ndash; $5.00</td>
+          <td class="cost bad">&minus;$0.499 to &minus;$4.999</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--red);font-size:.65rem">Gas exceeds payment by 500x-5000x</td>
+        </tr>
+        <tr>
+          <td class="method">L2 Rollup (Base, Arb)</td>
+          <td class="cost ok">$0.01 &ndash; $0.10</td>
+          <td class="cost bad">&minus;$0.009 to &minus;$0.099</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--yellow);font-size:.65rem">Gas still 10x-100x the payment</td>
+        </tr>
+        <tr>
+          <td class="method">Stripe / PayPal</td>
+          <td class="cost ok">$0.30 + 2.9%</td>
+          <td class="cost bad">&minus;$0.299</td>
+          <td class="viable"><span class="x-mark">&times;</span></td>
+          <td style="color:var(--yellow);font-size:.65rem">$0.30 minimum fee kills micro-txs</td>
+        </tr>
+        <tr style="background:var(--green-dim)">
+          <td class="method" style="color:var(--green)">&#x2728; Arc + Nanopayments</td>
+          <td class="cost good">~$0.000</td>
+          <td class="cost good">+$0.001 (full margin)</td>
+          <td class="viable"><span class="check-mark">&check;</span></td>
+          <td style="color:var(--green);font-size:.65rem;font-weight:600">100% margin &mdash; gas-free batched settlement</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="margin-note">
+      Circle Gateway batches thousands of signed payment authorizations into a single on-chain settlement.
+      Buyers sign EIP-3009 authorizations off-chain at zero gas cost, making sub-cent agent-to-agent
+      payments economically viable for the first time. Our demo processes 60+ transactions at $0.001-$0.003
+      each &mdash; a model that would lose money on every other payment rail.
+    </div>
+  </div>
+</div>
+
+</div><!-- /grid-main -->
+</div>
+<script>
+// === EMBEDDED DEMO DATA ===
+const DEMO_STATS = {"totalTransactions":187,"completedTransactions":187,"failedTransactions":0,"avgLatencyMs":196,"transactionsByAgent":{"sentiment":130,"summarizer":26,"translator":26,"aisa-twitter":5}};
+
+const DEMO_AGENTS = {"orchestrator":{"address":"0xE57826B93c268b49cC231492c7A22B01015cae9a","gatewayBalance":"9.53","walletBalance":"9.99"},"agents":{"translator":{"address":"0xE6c18D7dC9145328250C1688A8D3c45Fb8c8787e","price":"$0.002","port":4001},"summarizer":{"address":"0x5746cd283F49613050f9aC90b66Cf0e564cDA6B2","price":"$0.003","port":4002},"sentiment":{"address":"0xe34716299B2D40d8B2Ad8cb2Bc9cA80A6D1c6d36","price":"$0.001","port":4003}}};
+
+// Transaction data (187 real transactions)
+const DEMO_TXS = [{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-1","timestamp":1776437738741,"latencyMs":2},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-2","timestamp":1776437740422,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-3","timestamp":1776437740425,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-4","timestamp":1776437740426,"latencyMs":661},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-5","timestamp":1776437742372,"latencyMs":1},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-6","timestamp":1776437742374,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-7","timestamp":1776437742377,"latencyMs":793},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-8","timestamp":1776437752790,"latencyMs":1},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-9","timestamp":1776437754276,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-10","timestamp":1776437754278,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-11","timestamp":1776437754278,"latencyMs":765},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-12","timestamp":1776437755679,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-13","timestamp":1776437755681,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-14","timestamp":1776437755683,"latencyMs":717},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-15","timestamp":1776437756339,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-16","timestamp":1776437757675,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-17","timestamp":1776437757677,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-18","timestamp":1776437757677,"latencyMs":688},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-19","timestamp":1776437759037,"latencyMs":1},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-20","timestamp":1776437759039,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-21","timestamp":1776437759040,"latencyMs":669},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-22","timestamp":1776437759769,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-23","timestamp":1776437761151,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-24","timestamp":1776437761153,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-25","timestamp":1776437761153,"latencyMs":706},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-26","timestamp":1776437762725,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-27","timestamp":1776437762727,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-28","timestamp":1776437762728,"latencyMs":831},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-29","timestamp":1776437763418,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-30","timestamp":1776437764786,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-31","timestamp":1776437764788,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-32","timestamp":1776437764788,"latencyMs":717},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-33","timestamp":1776437766388,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-34","timestamp":1776437766390,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-35","timestamp":1776437766391,"latencyMs":881},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-36","timestamp":1776437767135,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-37","timestamp":1776437768662,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-38","timestamp":1776437768665,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-39","timestamp":1776437768665,"latencyMs":759},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-40","timestamp":1776437770056,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-41","timestamp":1776437770058,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-42","timestamp":1776437770059,"latencyMs":666},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-43","timestamp":1776437770788,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-44","timestamp":1776437772196,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-45","timestamp":1776437772198,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-46","timestamp":1776437772198,"latencyMs":688},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-47","timestamp":1776437773645,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-48","timestamp":1776437773647,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-49","timestamp":1776437773648,"latencyMs":687},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-50","timestamp":1776437774369,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-51","timestamp":1776437775851,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-52","timestamp":1776437775853,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-53","timestamp":1776437775853,"latencyMs":689},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-54","timestamp":1776437777216,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-55","timestamp":1776437777218,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-56","timestamp":1776437777218,"latencyMs":645},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-57","timestamp":1776437777991,"latencyMs":1},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-58","timestamp":1776437779306,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-59","timestamp":1776437779308,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-60","timestamp":1776437779308,"latencyMs":636},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-61","timestamp":1776437780727,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-62","timestamp":1776437780729,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-63","timestamp":1776437780729,"latencyMs":718},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-64","timestamp":1776437781414,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-65","timestamp":1776437782846,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-66","timestamp":1776437782848,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-67","timestamp":1776437782848,"latencyMs":769},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-68","timestamp":1776437784230,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-69","timestamp":1776437784232,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-70","timestamp":1776437784232,"latencyMs":683},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-71","timestamp":1776437784897,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-72","timestamp":1776437786336,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-73","timestamp":1776437786338,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-74","timestamp":1776437786338,"latencyMs":679},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-75","timestamp":1776437787694,"latencyMs":1},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-76","timestamp":1776437787695,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-77","timestamp":1776437787696,"latencyMs":660},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-78","timestamp":1776437788370,"latencyMs":1},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-79","timestamp":1776437789663,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-80","timestamp":1776437789665,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-81","timestamp":1776437789665,"latencyMs":635},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-82","timestamp":1776437791055,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-83","timestamp":1776437791057,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-84","timestamp":1776437791058,"latencyMs":720},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-85","timestamp":1776437791732,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-86","timestamp":1776437792971,"latencyMs":1},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-87","timestamp":1776437792972,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-88","timestamp":1776437792973,"latencyMs":609},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-89","timestamp":1776437794301,"latencyMs":1},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-90","timestamp":1776437794302,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-91","timestamp":1776437794302,"latencyMs":672},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-92","timestamp":1776437795006,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-93","timestamp":1776437796310,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-94","timestamp":1776437796312,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-95","timestamp":1776437796312,"latencyMs":652},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-96","timestamp":1776437797680,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-97","timestamp":1776437797682,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-98","timestamp":1776437797682,"latencyMs":703},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-99","timestamp":1776437798346,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-100","timestamp":1776437799691,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-101","timestamp":1776437799693,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-102","timestamp":1776437799693,"latencyMs":641},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-103","timestamp":1776437800996,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-104","timestamp":1776437800998,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-105","timestamp":1776437800998,"latencyMs":659},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-106","timestamp":1776437801640,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-107","timestamp":1776437802877,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-108","timestamp":1776437802879,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-109","timestamp":1776437802879,"latencyMs":618},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-110","timestamp":1776437804258,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-111","timestamp":1776437804260,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-112","timestamp":1776437804260,"latencyMs":706},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-113","timestamp":1776437804925,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-114","timestamp":1776437806267,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-115","timestamp":1776437806269,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-116","timestamp":1776437806269,"latencyMs":639},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-117","timestamp":1776437807611,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-118","timestamp":1776437807613,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-119","timestamp":1776437807613,"latencyMs":703},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-120","timestamp":1776437808239,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-121","timestamp":1776437809710,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-122","timestamp":1776437809712,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-123","timestamp":1776437809712,"latencyMs":838},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-124","timestamp":1776437811021,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-125","timestamp":1776437811023,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-126","timestamp":1776437811023,"latencyMs":641},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-127","timestamp":1776437811680,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-128","timestamp":1776437812904,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-129","timestamp":1776437812905,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-130","timestamp":1776437812906,"latencyMs":611},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-131","timestamp":1776437814271,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-132","timestamp":1776437814273,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-133","timestamp":1776437814273,"latencyMs":692},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-134","timestamp":1776437814928,"latencyMs":1},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-135","timestamp":1776437816236,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-136","timestamp":1776437816238,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-137","timestamp":1776437816238,"latencyMs":662},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-138","timestamp":1776437817602,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-139","timestamp":1776437817604,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-140","timestamp":1776437817604,"latencyMs":638},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-141","timestamp":1776437818266,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-142","timestamp":1776437819607,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-143","timestamp":1776437819609,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-144","timestamp":1776437819609,"latencyMs":679},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-145","timestamp":1776437820941,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-146","timestamp":1776437820943,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-147","timestamp":1776437820943,"latencyMs":680},{"from":"orchestrator","to":"aisa-twitter","amount":"$0.000440","service":"twitter-user-info","status":"completed","id":"tx-148","timestamp":1776437822724,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-149","timestamp":1776437823363,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-150","timestamp":1776437824673,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-151","timestamp":1776437824675,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-152","timestamp":1776437824676,"latencyMs":671},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-153","timestamp":1776437826063,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-154","timestamp":1776437826065,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-155","timestamp":1776437826065,"latencyMs":691},{"from":"orchestrator","to":"aisa-twitter","amount":"$0.000440","service":"twitter-user-info","status":"completed","id":"tx-156","timestamp":1776437827711,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-157","timestamp":1776437828364,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-158","timestamp":1776437829704,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-159","timestamp":1776437829706,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-160","timestamp":1776437829706,"latencyMs":674},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-161","timestamp":1776437831079,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-162","timestamp":1776437831081,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-163","timestamp":1776437831081,"latencyMs":705},{"from":"orchestrator","to":"aisa-twitter","amount":"$0.000440","service":"twitter-user-info","status":"completed","id":"tx-164","timestamp":1776437832891,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-165","timestamp":1776437833516,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-166","timestamp":1776437835596,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-167","timestamp":1776437835598,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-168","timestamp":1776437835599,"latencyMs":1425},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-169","timestamp":1776437836909,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-170","timestamp":1776437836911,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-171","timestamp":1776437836911,"latencyMs":639},{"from":"orchestrator","to":"aisa-twitter","amount":"$0.000440","service":"twitter-user-info","status":"completed","id":"tx-172","timestamp":1776437838736,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-173","timestamp":1776437839365,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-174","timestamp":1776437840733,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-175","timestamp":1776437840735,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-176","timestamp":1776437840735,"latencyMs":661},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-177","timestamp":1776437842098,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-178","timestamp":1776437842100,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-179","timestamp":1776437842100,"latencyMs":652},{"from":"orchestrator","to":"aisa-twitter","amount":"$0.000440","service":"twitter-user-info","status":"completed","id":"tx-180","timestamp":1776437843715,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-181","timestamp":1776437844387,"latencyMs":0},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-182","timestamp":1776437845753,"latencyMs":0},{"from":"summarizer","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-183","timestamp":1776437845755,"latencyMs":0},{"from":"orchestrator","to":"summarizer","amount":"$0.003","service":"summarize","status":"completed","id":"tx-184","timestamp":1776437845755,"latencyMs":651},{"from":"orchestrator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-185","timestamp":1776437847126,"latencyMs":0},{"from":"translator","to":"sentiment","amount":"$0.001","service":"sentiment-analysis","status":"completed","id":"tx-186","timestamp":1776437847128,"latencyMs":0},{"from":"orchestrator","to":"translator","amount":"$0.002","service":"translate","status":"completed","id":"tx-187","timestamp":1776437847128,"latencyMs":704}];
+// === STATE ===
+const txList = [];
+let startTime = Date.now();
+let replayIndex = 0;
+let replayDone = false;
+
+// === DOM REFS ===
+const $=id=>document.getElementById(id);
+
+// === SHOW DEMO MODAL ===
+function showDemoModal() {
+  $('demoModal').classList.add('visible');
+}
+
+// === TRANSACTIONS ===
+function addTransaction(tx) {
+  if (txList.find(t => t.id === tx.id)) return;
+  txList.unshift(tx);
+  renderFeed();
+}
+
+function agentClass(name) {
+  if (name === 'orchestrator') return 'orch';
+  if (name === 'translator') return 'trans';
+  if (name === 'summarizer') return 'summ';
+  if (name === 'sentiment') return 'sent';
+  return '';
+}
+
+function agentLabel(name) {
+  return name.charAt(0).toUpperCase() + name.slice(1, 4);
+}
+
+function renderFeed() {
+  const feed = $('txFeed');
+  if (!txList.length) return;
+  const empty = $('feedEmpty');
+  if (empty) empty.remove();
+
+  const slice = txList.slice(0, 100);
+  feed.innerHTML = slice.map((tx, i) => {
+    const time = new Date(tx.timestamp).toLocaleTimeString('en-US', {hour12:false});
+    return '<div class="tx-row' + (i === 0 ? ' new' : '') + '">' +
+      '<span class="tx-time">' + time + '</span>' +
+      '<span class="tx-flow">' +
+        '<span class="tx-agent ' + agentClass(tx.from) + '">' + agentLabel(tx.from) + '</span>' +
+        '<span class="tx-arrow">&rarr;</span>' +
+        '<span class="tx-agent ' + agentClass(tx.to) + '">' + agentLabel(tx.to) + '</span>' +
+      '</span>' +
+      '<span class="tx-svc">' + tx.service + '</span>' +
+      '<span class="tx-amt">' + tx.amount + '</span>' +
+      '<span class="tx-status"><span class="tx-badge ' + tx.status + '">' + tx.status + '</span></span>' +
+      '<span class="tx-lat">' + (tx.latencyMs ? tx.latencyMs + 'ms' : '\u2014') + '</span>' +
+    '</div>';
+  }).join('');
+
+  $('feedCount').textContent = txList.length + ' txs';
+}
+
+// === STATS ===
+function refreshStats() {
+  const completed = txList.filter(t => t.status === 'completed');
+  const total = txList.length;
+
+  $('statTotal').textContent = total;
+
+  let spent = 0;
+  completed.forEach(tx => {
+    const num = parseFloat(tx.amount.replace('$', ''));
+    if (!isNaN(num)) spent += num;
+  });
+  $('statSpent').textContent = '$' + spent.toFixed(4);
+
+  const avgLat = completed.reduce((s, t) => s + (t.latencyMs || 0), 0) / (completed.length || 1);
+  $('statLatency').textContent = Math.round(avgLat) + 'ms';
+
+  const byAgent = { translator: 0, summarizer: 0, sentiment: 0 };
+  completed.forEach(tx => { if (byAgent[tx.to] !== undefined) byAgent[tx.to]++; });
+  const maxCount = Math.max(1, ...Object.values(byAgent));
+
+  $('barTrans').style.height = Math.max(2, (byAgent.translator / maxCount) * 50) + 'px';
+  $('barSumm').style.height = Math.max(2, (byAgent.summarizer / maxCount) * 50) + 'px';
+  $('barSent').style.height = Math.max(2, (byAgent.sentiment / maxCount) * 50) + 'px';
+  $('barCountTrans').textContent = byAgent.translator;
+  $('barCountSumm').textContent = byAgent.summarizer;
+  $('barCountSent').textContent = byAgent.sentiment;
+}
+
+// === ARROW FLASH ===
+function flashArrow(agentName) {
+  const arrowId = {translator:'arrowTrans',summarizer:'arrowSumm',sentiment:'arrowSent'}[agentName];
+  if (!arrowId) return;
+  const el = $(arrowId);
+  el.classList.add('active');
+  setTimeout(function() { el.classList.remove('active'); }, 1200);
+}
+
+// === DEMO REPLAY ===
+function replayNext() {
+  if (replayIndex >= DEMO_TXS.length) {
+    replayDone = true;
+    $('connStatus').textContent = 'Replay Complete';
+    return;
+  }
+  var tx = DEMO_TXS[replayIndex];
+  addTransaction(tx);
+  refreshStats();
+  flashArrow(tx.to);
+  replayIndex++;
+
+  $('connStatus').textContent = 'Replaying ' + replayIndex + '/' + DEMO_TXS.length;
+
+  setTimeout(replayNext, 100);
+}
+
+// === UPTIME CLOCK ===
+function tickUptime() {
+  var elapsed = Math.floor((Date.now() - startTime) / 1000);
+  var h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+  var m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+  var s = String(elapsed % 60).padStart(2, '0');
+  $('uptimeTag').textContent = h + ':' + m + ':' + s;
+}
+
+// === INIT ===
+$('liveDot').style.background = 'var(--green)';
+setTimeout(replayNext, 500);
+setInterval(tickUptime, 1000);
+</script>
+</body>
+</html>
